@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 EllaBotLib/
+logs/
+config.ini
+config.json

@@ -23,6 +23,7 @@ class Event():
         self.data = data
     def consume(self) -> None: self._handler.consume(self)
     def matches(self, name:str) -> bool: return (self.name == name.lower().strip())
+    def __repr__(self): return f"Event(name='{self.name}', data={self.data})"
 class Events_Handler():
     def __init__(self):
 

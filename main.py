@@ -12,10 +12,13 @@ ITEMS:list[events.Run] = [
     events.Run(event_handler, "tutorial_breakout.breakout_main", "BreakoutRun")
 ]
 
-GIT_PULL = True
+GIT_PULL = False
 GIT_PULL_INTERVAL = 30
-HOT_RELOAD = True
+HOT_RELOAD = False
 HOT_RELOAD_CHECK_TIME = 5
+
+initial_tick_done = False
+stop_flag = False
 
 def git_pull() -> bool:
     result = subprocess.run(["git", "pull"], capture_output=True, text=True)
@@ -46,12 +49,32 @@ def tick_all():
         if not run.run_me: continue
         if not safe_call(run.tick): run.stop()
 
+
+# =======================================================
+# Methods called by main loop at certain times
+def pre_start(): pass
+def post_start(): pass
+def post_initial_tick(): pass
+def pre_stop(): pass
+def post_stop(): pass
+# =======================================================
+
+
 if __name__ == "__main__":
+    pre_start()
     for run in ITEMS: safe_call(run.start)
+    post_start()
 
     last_hot_reload_check = time.time()
     last_git_pull = time.time()
     while True:
+
+        if(stop_flag):
+            pre_stop()
+            for run in ITEMS: safe_call(run.stop)
+            post_stop()
+            break
+
         time.sleep(0.01)
         event_handler.tick()
 
@@ -64,3 +87,4 @@ if __name__ == "__main__":
             hot_reload_check()
 
         tick_all()
+        if(not initial_tick_done): post_initial_tick(); initial_tick_done = True
