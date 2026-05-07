@@ -3,6 +3,7 @@ from typing import Callable
 import sys
 import os
 import time
+import threading
 
 def _reload_with_submodules(module):
     package = module.__name__.rsplit(".", 1)[0]
@@ -30,12 +31,15 @@ class Events_Handler():
         self._hooks: dict[str, tuple[Callable[[Event], Event], object]] = {}
         self._current_events:list[Event] = []
         self._new_events: list[Event] = []
+        self._lock = threading.Lock()
 
     # Emit an event for other items to listen to next tick
-    def emit(self, name: str, data: dict = None) -> None: self._new_events.append(Event(self, name, data))
+    def emit(self, name: str, data: dict = None) -> None:
+        with self._lock: self._new_events.append(Event(self, name, data))
 
     # Emits instantly, items already processed this tick will not receive it
-    def emit_now(self, name: str, data: dict = None) -> None: self._current_events.append(Event(self, name, data))
+    def emit_now(self, name: str, data: dict = None) -> None:
+        with self._lock: self._current_events.append(Event(self, name, data))
 
     # If an item has a hook for this event, it will run instantly and receive the return value, otherwise returns None
     def request(self, name: str, data: dict = None) -> Event | None:
@@ -62,17 +66,20 @@ class Events_Handler():
 
     # Returns the current event list, iterate over it to process events
     def get_events(self, name: str = None) -> list[Event]:
-        if name is None: return list(self._current_events)
-        return [e for e in self._current_events if e.matches(name)]
+        with self._lock:
+            if name is None: return list(self._current_events)
+            return [e for e in self._current_events if e.matches(name)]
 
     # Remove an event so subsequent items won't receive it
     def consume(self, event: Event) -> None:
-        try: self._current_events.remove(event)
-        except ValueError: raise Exception("Event not found in current events")
+        with self._lock:
+            try: self._current_events.remove(event)
+            except ValueError: raise Exception("Event not found in current events")
 
     def tick(self):
-        self._current_events = self._new_events
-        self._new_events = []
+        with self._lock:
+            self._current_events = self._new_events
+            self._new_events = []
 
 class Run():
     def __init__(self, events_handler: Events_Handler, import_path: str, class_name: str):
