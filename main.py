@@ -1,6 +1,7 @@
 import time
 import traceback
 import subprocess
+from quick_ini import QuickIni
 
 import events
 
@@ -12,10 +13,12 @@ ITEMS:list[events.Run] = [
     events.Run(event_handler, "tutorial_breakout.breakout_main", "BreakoutRun")
 ]
 
-GIT_PULL = False
-GIT_PULL_INTERVAL = 30
-HOT_RELOAD = False
-HOT_RELOAD_CHECK_TIME = 5
+QuickIni.load_file("config.ini")
+
+GIT_PULL = QuickIni.get_value('do_git_pull', False)
+GIT_PULL_INTERVAL = QuickIni.get_value('git_pull_interval', 120)
+HOT_RELOAD = QuickIni.get_value('do_file_checks', False)
+HOT_RELOAD_CHECK_TIME = QuickIni.get_value('file_checks_interval', 1)
 
 initial_tick_done = False
 stop_flag = False

@@ -1,0 +1,30 @@
+
+get_accounts
+D: Send account details
+T: Emit
+P:
+R: -> add_account
+
+add_account
+D: Add a new account
+T: Emit
+P:
+- email:str
+- key:str
+- [twin]:bool
+R:
+
+remove_account
+D: Remove an account from memory
+T: Emit
+P:
+- email:str
+R:
+
+update_account_status
+D: Update the status for an account
+T: Emit
+P:
+- email:str
+- status:str ('TUT', 'BASE', 'OUT', 'DIS')
+R:

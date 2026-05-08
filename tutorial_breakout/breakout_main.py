@@ -1,4 +1,5 @@
 import time
+from quick_ini import QuickIni
 
 from EllaBotLib import bot
 from events import Events_Handler, Run, RunChild, Event
@@ -6,13 +7,14 @@ import EllaBotLib as Ella
 from EllaBotLib import defaultActions, functions
 from .tut_actions import get_breakout_actions, food_locations, get_eat_food_at_location_actions
 
-DATA_PATH = r"C:/OneLifeData7"
+QuickIni.load_file("config.ini")
+DATA_PATH = QuickIni.get_value("data7_path", "C:/OneLifeData7")
 
-IP = "bigserver2.onehouronelife.com"
-PORT = 8005
+IP = QuickIni.get_value("ohol_ip", "bigserver2.onehouronelife.com")
+PORT = QuickIni.get_value("ohol_port", 8005)
 
-TWIN = True
-TWIN_CODE = "TWIN"
+TWIN = QuickIni.get_value("run_as_twins", False)
+TWIN_CODE = QuickIni.get_value("twin_code", "TWIN")
 
 def get_valid_object_at(bot: Ella.Bot_Object, x: int, y: int) -> Ella.Live_Item_Object:
     tile = bot.world.get_tile(x, y)
@@ -25,10 +27,10 @@ def get_valid_object_at(bot: Ella.Bot_Object, x: int, y: int) -> Ella.Live_Item_
 
 
 class BreakoutAccount():
-    def __init__(self, email, key, status, twin:bool = False):
+    def __init__(self, email, key, twin:bool = False):
         self.email = email
         self.key = key
-        self.status = status # TUT, BASE, OUT, DIS
+        self.status = "DIS" # TUT, BASE, OUT, DIS
 
         if(twin == None): twin = TWIN # DEFAULT to global twin setting if not provided
 
@@ -36,11 +38,12 @@ class BreakoutAccount():
         self.bot.set_login_creds(email, key, IP, PORT)
         if(twin): self.bot.set_twin_info(TWIN_CODE, 2, enable_twinning=True)
 
-        self.in_tut_phase = True # We are trying to get a ghost, so we are in the tutorial phase until we get one.
-        self.phase = self.Phase.TUTORIAL
-
         self.last_login_time = 0
         self.tut_food_list:list[tuple[int, int]] = []
+    def set_status(self, status:str):
+        status = status.upper()
+        if(status not in ("TUT", "BASE", "OUT", "DIS")): raise Exception(f"Invalid status {status} for account {self.email}")
+        self.status = status
 
 class BreakoutRun(RunChild):
     def start(self):
@@ -59,10 +62,11 @@ class BreakoutRun(RunChild):
     def handle_add_account(self, event: Event):
         email = event.data.get("email")
         key = event.data.get("key")
-        status = event.data.get("status", "DIS").upper()
         do_twin = event.data.get("twin", None)
         if(not email or not key): raise Exception("add_account event missing email or key", event)
-        account = BreakoutAccount(email, key, status, twin=do_twin)
+        for acc in self.breakoutAccounts:
+            if(acc.email == email): return
+        account = BreakoutAccount(email, key, twin=do_twin)
         self.breakoutAccounts.append(account)
         print(f"Added account {email}")
 
@@ -74,7 +78,16 @@ class BreakoutRun(RunChild):
                 del self.breakoutAccounts[i]
                 print(f"Removed account {email}")
                 return
-        raise Exception(f"Account with email {email} not found", event)
+    
+    def handle_update_account_status(self, event: Event):
+        email = event.data.get("email")
+        status = event.data.get("status")
+        if(not email or not status): raise Exception("update_account_status event missing email or status", event)
+        for account in self.breakoutAccounts:
+            if(account.email == email):
+                account.set_status(status)
+                print(f"Updated account {email} status to {status}")
+                return
     # ====================================
 
     def handle_bot_tick(self, account: BreakoutAccount):
@@ -99,6 +112,7 @@ class BreakoutRun(RunChild):
                 for action in ac: bot.action_manager.add_action(action, chain_id="actions_tut")
             
             if(account.status != "TUT"):
+                print(f"Account {account.email} has status {account.status}, logging out...")
                 bot.unlogin()
                 return
             
@@ -124,6 +138,7 @@ class BreakoutRun(RunChild):
 
         for e in self.events_handler.get_events():
             if(e.matches("add_account")): self.handle_add_account(e)
-        
+            elif(e.matches("remove_account")): self.handle_remove_account(e)
+            elif(e.matches("update_account_status")): self.handle_update_account_status(e)
 
         for account in self.breakoutAccounts: self.handle_bot_tick(account)

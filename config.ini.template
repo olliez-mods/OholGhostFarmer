@@ -1,0 +1,15 @@
+discord_token=token_here
+
+data7_path=C:/OneLifeData7
+ohol_ip=bigserver2.onehouronelife.com
+ohol_port=8005
+
+run_as_twins=false
+twin_code=TWIN
+
+# Automated items
+do_git_pull=false
+do_file_checks=false
+git_pull_interval=120
+file_checks_interval=30
+

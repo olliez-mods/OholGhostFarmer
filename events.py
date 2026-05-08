@@ -5,6 +5,8 @@ import os
 import time
 import threading
 
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
 def _reload_with_submodules(module):
     package = module.__name__.rsplit(".", 1)[0]
     submods = [
@@ -133,9 +135,13 @@ class Run():
 class RunChild():
     def __init__(self, parent: Run, events_handler: Events_Handler):
         self.parent = parent
-        self.events_handler = events_handler\
+        self.events_handler = events_handler
+
+        print(self.get_root_path(), self.get_self_path())
     
     def set_status(self, status:str): self.parent.status = status
+    def get_root_path(self) -> str: return _PROJECT_ROOT
+    def get_self_path(self) -> str: return os.path.dirname(self.parent._module.__file__)
 
     def start(self): pass
     def stop(self): pass
