@@ -6,15 +6,10 @@ from events import Events_Handler, Run, RunChild, Event
 import EllaBotLib as Ella
 from EllaBotLib import defaultActions, functions
 from .tut_actions import get_breakout_actions, food_locations, get_eat_food_at_location_actions
+from shared.account import OholAccount
 
 QuickIni.load_file("config.ini")
 DATA_PATH = QuickIni.get_value("data7_path", "C:/OneLifeData7")
-
-IP = QuickIni.get_value("ohol_ip", "bigserver2.onehouronelife.com")
-PORT = QuickIni.get_value("ohol_port", 8005)
-
-TWIN = QuickIni.get_value("run_as_twins", False)
-TWIN_CODE = QuickIni.get_value("twin_code", "TWIN")
 
 def get_valid_object_at(bot: Ella.Bot_Object, x: int, y: int) -> Ella.Live_Item_Object:
     tile = bot.world.get_tile(x, y)
@@ -24,26 +19,6 @@ def get_valid_object_at(bot: Ella.Bot_Object, x: int, y: int) -> Ella.Live_Item_
     item = obj.item
     if(not item): return None
     return obj
-
-
-class BreakoutAccount():
-    def __init__(self, email, key, twin:bool = False):
-        self.email = email
-        self.key = key
-        self.status = "DIS" # TUT, BASE, OUT, DIS
-
-        if(twin == None): twin = TWIN # DEFAULT to global twin setting if not provided
-
-        self.bot = Ella.Bot_Object()
-        self.bot.set_login_creds(email, key, IP, PORT)
-        if(twin): self.bot.set_twin_info(TWIN_CODE, 2, enable_twinning=True)
-
-        self.last_login_time = 0
-        self.tut_food_list:list[tuple[int, int]] = []
-    def set_status(self, status:str):
-        status = status.upper()
-        if(status not in ("TUT", "BASE", "OUT", "DIS")): raise Exception(f"Invalid status {status} for account {self.email}")
-        self.status = status
 
 class BreakoutRun(RunChild):
     def start(self):
@@ -55,7 +30,7 @@ class BreakoutRun(RunChild):
 
         Ella.set_action_manager_logging(failures=True, starts=True, completions=True)
 
-        self.breakoutAccounts:list[BreakoutAccount] = []
+        self.oholAccounts:list[OholAccount] = []
         self.events_handler.emit("get_accounts")
     
     # ========== Event Handlers ==========
@@ -64,18 +39,18 @@ class BreakoutRun(RunChild):
         key = event.data.get("key")
         do_twin = event.data.get("twin", None)
         if(not email or not key): raise Exception("add_account event missing email or key", event)
-        for acc in self.breakoutAccounts:
+        for acc in self.oholAccounts:
             if(acc.email == email): return
-        account = BreakoutAccount(email, key, twin=do_twin)
-        self.breakoutAccounts.append(account)
+        account = OholAccount(email, key, twin=do_twin)
+        self.oholAccounts.append(account)
         print(f"Added account {email}")
 
     def handle_remove_account(self, event: Event):
         email = event.data.get("email")
         if(not email): raise Exception("remove_account event missing email", event)
-        for i, account in enumerate(self.breakoutAccounts):
+        for i, account in enumerate(self.oholAccounts):
             if(account.email == email):
-                del self.breakoutAccounts[i]
+                del self.oholAccounts[i]
                 print(f"Removed account {email}")
                 return
     
@@ -83,14 +58,14 @@ class BreakoutRun(RunChild):
         email = event.data.get("email")
         status = event.data.get("status")
         if(not email or not status): raise Exception("update_account_status event missing email or status", event)
-        for account in self.breakoutAccounts:
+        for account in self.oholAccounts:
             if(account.email == email):
                 account.set_status(status)
                 print(f"Updated account {email} status to {status}")
                 return
     # ====================================
 
-    def handle_bot_tick(self, account: BreakoutAccount):
+    def handle_bot_tick(self, account: OholAccount):
         bot = account.bot
         p = bot.handle_next_packet()
 
@@ -99,6 +74,7 @@ class BreakoutRun(RunChild):
             if(time.time() - account.last_login_time > 30):
                 print(f"Logging in account {account.email}...")
                 bot.reset_bot(preserve_login_info=True)
+                bot.reset_flags()
                 bot.login(tutorial_num=1)
                 account.last_login_time = time.time()
                 account.tut_food_list = food_locations.copy()
@@ -141,4 +117,4 @@ class BreakoutRun(RunChild):
             elif(e.matches("remove_account")): self.handle_remove_account(e)
             elif(e.matches("update_account_status")): self.handle_update_account_status(e)
 
-        for account in self.breakoutAccounts: self.handle_bot_tick(account)
+        for account in self.oholAccounts: self.handle_bot_tick(account)
