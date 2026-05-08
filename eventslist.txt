@@ -28,3 +28,20 @@ P:
 - email:str
 - status:str ('TUT', 'BASE', 'OUT', 'DIS')
 R:
+
+ghost_created
+D: Called when a new ghost is created in tut, alerts discord
+T: Emit
+P:
+- email:str
+R:
+
+get_tut_status
+D: Get status of a tutorial bot
+T: Hook
+P:
+- email:str
+R:
+- is_ghost:bool
+- in_game:bool
+- age:float

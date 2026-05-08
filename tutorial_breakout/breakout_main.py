@@ -32,8 +32,28 @@ class BreakoutRun(RunChild):
 
         self.oholAccounts:list[OholAccount] = []
         self.events_handler.emit("get_accounts")
+
+        self.events_handler.hook("get_tut_status", self.hook_get_tut_status, owner=self)
     
     # ========== Event Handlers ==========
+    def hook_get_tut_status(self, event: Event) -> Event:
+        email = event.data.get("email")
+        if(not email): raise Exception("get_tut_status event missing email", event)
+        for account in self.oholAccounts:
+            if(account.email == email):
+                in_game = account.bot.logged_in and account.bot.sock_alive
+                age = None
+                is_ghost = None
+                if(in_game):
+                    age = account.bot.live_player.get_age()
+                    is_ghost = account.bot.live_player.is_ghost
+                return Event(self, "get_tut_status_response", {
+                    "in_game": in_game,
+                    "age": age,
+                    "is_ghost": is_ghost
+                })
+        raise Exception(f"get_tut_status could not find account for email {email}")
+
     def handle_add_account(self, event: Event):
         email = event.data.get("email")
         key = event.data.get("key")
@@ -81,6 +101,10 @@ class BreakoutRun(RunChild):
 
         if(bot.logged_in and not bot.login_proccess):
             bot.action_manager.tick()
+
+            if(bot.ensure_single_run("ghost_alert", bot.live_player.is_ghost)):
+                print(f"Account {account.email} has become a ghost!")
+                self.events_handler.emit("ghost_created", {"email": account.email})
 
             if(bot.ensure_single_run("add_actions")):
                 print("Adding actions...")
