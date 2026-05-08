@@ -153,6 +153,10 @@ async def help(ctx):
         "!ping - Check if the bot is responsive.\n"
         "!help - Show this help message.\n"
         "!status - Show the status of all accounts.\n"
+        "!setstatus <index> <status> - Set the status of an account. Status can be TUT, BASE, OUT, DIS.\n"
+        "!setnotes <index> <notes> - Set the notes for an account.\n"
+        "!addaccount <email> <key> - Add a new account.\n"
+        "!removeaccount <index> - Remove an account."
     )
     await ctx.send(help_message)
 
@@ -204,4 +208,29 @@ async def setnotes(ctx, index: int, *, notes: str):
     account = _run_instance.account_manager.accounts[index]
     _run_instance.account_manager.set_account_notes(account["email"], notes)
     await ctx.send(f"Set notes of [{account['email']}] to {notes}.")
+
+@bot.command()
+async def addaccount(ctx, email: str, key: str):
+    update_last_used_channel(ctx)
+    account = _run_instance.account_manager.add_account(email, key)
+    _run_instance.events_handler.emit("add_account", {
+        "email": account["email"],
+        "key": account["key"],
+        "twin": None
+    })
+    await ctx.send(f"Added account {email}.")
+
+@bot.command()
+async def removeaccount(ctx, index: int):
+    update_last_used_channel(ctx)
+    index = int(index) - 1
+    if(index < 0 or index >= len(_run_instance.account_manager.accounts)):
+        await ctx.send("Invalid account index.")
+        return
+    account = _run_instance.account_manager.accounts[index]
+    _run_instance.account_manager.remove_account(account["email"])
+    _run_instance.events_handler.emit("remove_account", {
+        "email": account["email"]
+    })
+    await ctx.send(f"Removed account {account['email']}.")
 
