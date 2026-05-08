@@ -14,7 +14,7 @@ SECONDS_PER_PIP = 39
 
 class GhostBaseRun(RunChild):
     def start(self):
-        print("Starting Ghost Base Run sorry")
+        print("Start Ghost Base")
 
         num_items = Ella.load_items_from_raw(DATA_PATH)
         if(not num_items): raise Exception("Failed to load items from data7.")

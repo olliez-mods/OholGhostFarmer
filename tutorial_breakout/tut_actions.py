@@ -216,13 +216,11 @@ def get_breakout_actions() -> list[Action]:
     Use_Held_On_Object_Action("Snared Rabbit"),
     Empty_Hands_action(),
 
-    Print_World(7),
     # Make clay items
     Repeat_Action(5, 
         lambda: Get_Item_Action(r"^Clay Deposit", r"^Clay Pit", ignore_result=True),
         lambda: Empty_Hands_action(),
     ),
-    Print_World(7),
     Get_Item_Action(r"^Stone$"),
     Repeat_Action(4, lambda: Use_Held_On_Object_Action(r"^Clay$")),
     Repeat_Action(2, lambda: Use_Held_On_Object_Action("Wet Clay Bowl")),

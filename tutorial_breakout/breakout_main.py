@@ -22,7 +22,7 @@ def get_valid_object_at(bot: Ella.Bot_Object, x: int, y: int) -> Ella.Live_Item_
 
 class BreakoutRun(RunChild):
     def start(self):
-        print("Starting Breakout Run")
+        print("Start Breakout Run")
 
         num_items = Ella.load_items_from_raw(DATA_PATH)
         if(not num_items): raise Exception("Failed to load items from data7.")
@@ -63,7 +63,6 @@ class BreakoutRun(RunChild):
             if(acc.email == email): return
         account = OholAccount(email, key, twin=do_twin)
         self.oholAccounts.append(account)
-        print(f"Added account {email}")
 
     def handle_remove_account(self, event: Event):
         email = event.data.get("email")
@@ -71,7 +70,6 @@ class BreakoutRun(RunChild):
         for i, account in enumerate(self.oholAccounts):
             if(account.email == email):
                 del self.oholAccounts[i]
-                print(f"Removed account {email}")
                 return
     
     def handle_update_account_status(self, event: Event):
@@ -92,7 +90,6 @@ class BreakoutRun(RunChild):
         if((not bot.logged_in or not bot.sock_alive) and account.status == "TUT"):
             # We are not logged in, try to log in every 30 seconds
             if(time.time() - account.last_login_time > 30):
-                print(f"Logging in account {account.email}...")
                 bot.reset_bot(preserve_login_info=True)
                 bot.reset_flags()
                 bot.login(tutorial_num=1)
@@ -103,11 +100,10 @@ class BreakoutRun(RunChild):
             bot.action_manager.tick()
 
             if(bot.ensure_single_run("ghost_alert", bot.live_player.is_ghost)):
-                print(f"Account {account.email} has become a ghost!")
+                print(f"Account {account.email} (id:{bot.live_player.id}) has become a ghost!")
                 self.events_handler.emit("ghost_created", {"email": account.email})
 
             if(bot.ensure_single_run("add_actions")):
-                print("Adding actions...")
                 ac = get_breakout_actions()
                 for action in ac: bot.action_manager.add_action(action, chain_id="actions_tut")
             
@@ -124,13 +120,11 @@ class BreakoutRun(RunChild):
                 closest_food_dist = float("inf")
                 bot_pos = bot.live_player.xy
                 for food_pos in account.tut_food_list:
-                    print(f"Checking food at {food_pos}, bot at {bot_pos}")
                     dist = functions.get_chebyshev_distance(bot_pos, food_pos)
                     if(dist < closest_food_dist):
                         closest_food_pos = food_pos
                         closest_food_dist = dist
                 if(closest_food_pos):
-                    print(f"Closest food is at {closest_food_pos}, distance {closest_food_dist}")
                     bot.action_manager.add_actions(*get_eat_food_at_location_actions(closest_food_pos), chain_id="eat_food")
                     account.tut_food_list.remove(closest_food_pos)
 

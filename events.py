@@ -136,8 +136,6 @@ class RunChild():
     def __init__(self, parent: Run, events_handler: Events_Handler):
         self.parent = parent
         self.events_handler = events_handler
-
-        print(self.get_root_path(), self.get_self_path())
     
     def set_status(self, status:str): self.parent.status = status
     def get_root_path(self) -> str: return _PROJECT_ROOT
