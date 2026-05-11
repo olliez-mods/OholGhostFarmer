@@ -79,13 +79,17 @@ class BreakoutRun(RunChild):
         for account in self.oholAccounts:
             if(account.email == email):
                 account.set_status(status)
-                print(f"Updated account {email} status to {status}")
                 return
     # ====================================
 
     def handle_bot_tick(self, account: OholAccount):
         bot = account.bot
         p = bot.handle_next_packet()
+
+        if(bot.live_player and not bot.live_player.alive and bot.live_player.get_age() > 16 and bot.live_player.get_age() < 58 and bot.ensure_single_run("handle_death")):
+            print(f"Account {account.email} (id:{bot.live_player.id}) has died at age {bot.live_player.get_age()} with death reason '{bot.live_player.death_reason}'")
+            account.last_login_time = time.time() # Try to log in again after 30 seconds
+            return
 
         if((not bot.logged_in or not bot.sock_alive) and account.status == "TUT"):
             # We are not logged in, try to log in every 30 seconds
@@ -99,13 +103,19 @@ class BreakoutRun(RunChild):
         if(bot.logged_in and not bot.login_proccess):
             bot.action_manager.tick()
 
+            if(bot.action_manager.last_action_failed):
+                print(f"Last action failed for account {account.email} (id:{bot.live_player.id}), resetting bot...")
+                bot.unlogin()
+                account.last_login_time = time.time()
+                return
+
             if(bot.ensure_single_run("ghost_alert", bot.live_player.is_ghost)):
                 print(f"Account {account.email} (id:{bot.live_player.id}) has become a ghost!")
                 self.events_handler.emit("ghost_created", {"email": account.email})
 
             if(bot.ensure_single_run("add_actions")):
                 ac = get_breakout_actions()
-                for action in ac: bot.action_manager.add_action(action, chain_id="actions_tut")
+                for action in ac: bot.action_manager.add_action(action, chain_id="tutacts")
             
             if(account.status != "TUT"):
                 print(f"Account {account.email} has status {account.status}, logging out...")

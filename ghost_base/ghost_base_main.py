@@ -51,7 +51,6 @@ class GhostBaseRun(RunChild):
         for account in self.oholAccounts:
             if(account.email == email):
                 account.set_status(status)
-                print(f"Updated account {email} status to {status}")
                 return
     # ====================================
 
