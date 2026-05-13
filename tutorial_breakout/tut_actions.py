@@ -83,6 +83,7 @@ def get_breakout_actions() -> list[Action]:
     return [
 
     # GET CLOTHES AND WALK TO BREAKOUT SPOT
+    Wait_Seconds_Action(5), # Wait a few seconds
     Walk_To_Action((13, -1)),
     Use_Held_On_Object_Action("Wooden Door"),
     Walk_To_Action((17, 0)),
