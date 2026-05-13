@@ -85,7 +85,7 @@ class Account_Manager():
 
 class DiscordRun(RunChild):
     def start(self):
-        print("Start Discord Run")
+        print("Start Discord Run, test")
         global _run_instance
         _run_instance = self
 
