@@ -5,9 +5,12 @@ from discord.ext import commands
 import threading
 import asyncio
 import json
+import time
 
 QuickIni.load_file("config.ini")
 TOKEN = QuickIni.get_value("discord_token")
+STATUS_UPDATE_INTERVAL = 30 # Seconds
+STATUS_EXPIRE_TIME = 1200 # Stop updating status message after this # seconds
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -94,6 +97,11 @@ class DiscordRun(RunChild):
         self.bot_thread = threading.Thread(target=bot.run, daemon=True, args=(TOKEN,))
         self.bot_thread.start()
 
+        # This will be updated automaticly once the user requests the status
+        self.status_message = None
+        self.status_message_sent_time = 0
+        self.status_message_last_update_time = 0
+
         self._send_all_account_statuses()
     
     def stop(self): pass # STOP BOT
@@ -104,6 +112,21 @@ class DiscordRun(RunChild):
                 "email": account["email"],
                 "status": account["status"]
             })
+    
+    def _create_status_embed(self, expired:bool=False) -> discord.Embed:
+        embed = discord.Embed(title="Account Statuses", description="Status of all accounts", color=0x00ff00 if not expired else 0xff0000)
+        for account in self.account_manager.accounts:
+            status = account["status"]
+            if(status == "TUT"):
+                e = self.events_handler.request("get_tut_status", {"email": account["email"]})
+                if(e):
+                    if(e.data.get("in_game")):
+                        status += f" {round(e.data.get('age'), 1)}yo"
+                        if(e.data.get("is_ghost")): status += " (GHOST)"
+                    else: status += " (Not in game)"
+            embed.add_field(name=f"[{account['notes']}]", value=status, inline=False)
+        embed.set_footer(text=f"Last updated: {time.ctime()}" + (" (EXPIRED)" if expired else ""))
+        return embed
 
     # ========== Event Handlers ==========
     def handle_get_accounts(self, event: Event):
@@ -127,6 +150,14 @@ class DiscordRun(RunChild):
         for e in self.events_handler.get_events():
             if(e.matches("get_accounts")): self.handle_get_accounts(e)
             if(e.matches("ghost_created")): self.handle_ghost_created(e)
+        
+        # Time to update the status message
+        if(self.status_message and time.time() > self.status_message_last_update_time + STATUS_UPDATE_INTERVAL):
+            expired = (self.status_message and time.time() > self.status_message_sent_time + STATUS_EXPIRE_TIME)
+            embed = self._create_status_embed(expired=expired)
+            asyncio.run_coroutine_threadsafe(self.status_message.edit(embed=embed), bot.loop)
+            self.status_message_last_update_time = time.time()
+            if(expired): self.status_message = None
 
 def update_last_used_channel(ctx):
     global last_used_channel
@@ -163,21 +194,16 @@ async def help(ctx):
 @bot.command()
 async def status(ctx):
     update_last_used_channel(ctx)
-    status_message = "Account Statuses:\n"
-    index = 1
-    for account in _run_instance.account_manager.accounts:
-        status_message += f"{index}. [{account['notes']}]: {account['status']}"
 
-        if(account["status"] == "TUT"):
-            e = _run_instance.events_handler.request("get_tut_status", {"email": account["email"]})
-            if(e):
-                if(e.data.get("in_game")):
-                    status_message += f" {round(e.data.get("age"), 1)}yo"
-                    if(e.data.get("is_ghost")): status_message += " (GHOST)"
-                else: status_message += " (Not in game)"
-        status_message += "\n"
-        index += 1
-    await ctx.send(status_message)
+    # If the status message already exists, edit it to be expired and create a new one
+    if(_run_instance.status_message):
+        embed = _run_instance._create_status_embed(expired=True)
+        await _run_instance.status_message.edit(embed=embed)
+    embed = _run_instance._create_status_embed()
+    status_message = await ctx.send(embed=embed)
+    _run_instance.status_message = status_message
+    _run_instance.status_message_sent_time = time.time()
+    _run_instance.status_message_last_update_time = time.time()
 
 @bot.command()
 async def setstatus(ctx, index: int, status: str):
