@@ -5,6 +5,8 @@ from discord.ext import commands
 import threading
 import asyncio
 import json
+import os
+import tempfile
 import time
 
 QuickIni.load_file("config.ini")
@@ -30,17 +32,33 @@ last_used_channel = None
 __DEFAULT_JSON_CONFIG = {
     "accounts": []
 }
-def config_get_create(path:str) -> dict:
-    try:
-        with open(path, "r") as f: return json.load(f)
-    except FileNotFoundError:
-        with open(path, "w") as f: json.dump(__DEFAULT_JSON_CONFIG, f)
-        return __DEFAULT_JSON_CONFIG.copy()
+
+class ConfigHelper():
+
+    @staticmethod
+    def config_get_create(path:str) -> dict:
+        try:
+            with open(path, "r") as f: return json.load(f)
+        except FileNotFoundError:
+            ConfigHelper.save_json(path, [])
+            return __DEFAULT_JSON_CONFIG.copy()
+
+    @staticmethod
+    def save_json(config_path:str, config: dict, accounts:list[dict] = None):
+        if accounts is not None: config["accounts"] = accounts
+
+        data = json.dumps(config, indent=2)
+        dir_ = os.path.dirname(os.path.abspath(config_path))
+        with tempfile.NamedTemporaryFile("w", dir=dir_, delete=False, suffix=".tmp") as tmp:
+            tmp.write(data)
+            tmp_path = tmp.name
+        os.replace(tmp_path, config_path)
+
 
 class Account_Manager():
     def __init__(self, config_path:str):
         self.config_path = config_path
-        self.config = config_get_create(config_path)
+        self.config = ConfigHelper.config_get_create(config_path)
         self.accounts:list[dict] = []
 
         found_housekeeper = False
@@ -83,8 +101,7 @@ class Account_Manager():
         return self._find(email)
 
     def _save_config(self):
-        with open(self.config_path, "w") as f:
-            json.dump({"accounts": self.accounts}, f, indent=2)
+        ConfigHelper.save_json(self.config_path, self.config, accounts=self.accounts)
 
 class DiscordRun(RunChild):
     def start(self):
@@ -114,7 +131,7 @@ class DiscordRun(RunChild):
             })
     
     def _create_status_embed(self, expired:bool=False) -> discord.Embed:
-        embed = discord.Embed(title="Account Statuses", description="Status of all accounts", color=0x00ff00 if not expired else 0xff0000)
+        embed = discord.Embed(title="Account Statuses", color=0x00ff00 if not expired else 0xff0000)
         for account in self.account_manager.accounts:
             status = account["status"]
             if(status == "TUT"):
@@ -124,7 +141,7 @@ class DiscordRun(RunChild):
                         status += f" {round(e.data.get('age'), 1)}yo"
                         if(e.data.get("is_ghost")): status += " (GHOST)"
                     else: status += " (Not in game)"
-            embed.add_field(name=f"[{account['notes']}]", value=status, inline=False)
+            embed.add_field(name=f"[{account['notes']}] {status}", value="\u200b", inline=False)
         embed.set_footer(text=f"Last updated: {time.ctime()}" + (" (EXPIRED)" if expired else ""))
         return embed
 
